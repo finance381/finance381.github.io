@@ -12,24 +12,29 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f1a;color:#fff;min-height:100dvh;overflow-x:hidden}
-.pin-screen{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-.logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#4A1111,#8B2D2D);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;position:relative}
-.logo::after{content:'';position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:#D4872C}
-.brand{font-size:13px;letter-spacing:6px;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600;margin-bottom:40px}
-.pin-dots{display:flex;gap:12px;margin-bottom:32px;height:20px}
-.dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.2);transition:all .15s}
-.dot.filled{background:#D4872C;border-color:#D4872C;transform:scale(1.1)}
-.dot.error{border-color:#ef4444;animation:shake .4s}
-.pin-msg{font-size:13px;color:rgba(255,255,255,.35);margin-bottom:24px;height:18px;text-align:center}
-.pin-msg.error{color:#ef4444}
-.keypad{display:grid;grid-template-columns:repeat(3,72px);gap:12px}
-.key{width:72px;height:56px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:22px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s;-webkit-tap-highlight-color:transparent;user-select:none}
-.key:active{background:rgba(255,255,255,.12);transform:scale(.95)}
-.key.back{font-size:16px;color:rgba(255,255,255,.4)}
-.key.empty{border:none;background:none;cursor:default}
 
-.hub-screen{min-height:100dvh;padding:0 0 32px}
-.hub-header{padding:20px 20px 16px;display:flex;align-items:center;justify-content:space-between}
+.pick-screen{min-height:100dvh;display:flex;flex-direction:column;max-width:440px;margin:0 auto;padding:24px 16px}
+.pick-header{text-align:center;padding:32px 0 24px}
+.logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#4A1111,#8B2D2D);display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;position:relative}
+.logo::after{content:'';position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:#D4872C}
+.brand{font-size:13px;letter-spacing:6px;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600}
+.pick-search{position:relative;margin-bottom:16px}
+.pick-search input{width:100%;padding:14px 16px 14px 42px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:16px;outline:none;transition:border .2s}
+.pick-search input:focus{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.06)}
+.pick-search input::placeholder{color:rgba(255,255,255,.25)}
+.pick-search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.3}
+.pick-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.pick-item{padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);margin-bottom:8px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:12px;-webkit-tap-highlight-color:transparent}
+.pick-item:active{background:rgba(255,255,255,.1);transform:scale(.98)}
+.pick-avatar{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4A1111,#8B2D2D);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.pick-name{font-size:15px;font-weight:600;color:#fff}
+.pick-apps{display:flex;gap:4px;margin-top:3px}
+.pick-dot{width:7px;height:7px;border-radius:50%;opacity:.7}
+.pick-empty{text-align:center;padding:32px 0;color:rgba(255,255,255,.25);font-size:13px}
+.pick-count{font-size:12px;color:rgba(255,255,255,.2);text-align:center;margin-bottom:12px}
+
+.hub-screen{min-height:100dvh;padding:0 0 32px;max-width:440px;margin:0 auto}
+.hub-header{padding:20px 16px 16px;display:flex;align-items:center;justify-content:space-between}
 .hub-user{display:flex;align-items:center;gap:12px}
 .avatar{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#4A1111,#8B2D2D);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
 .hub-name{font-size:16px;font-weight:700;color:#fff}
@@ -52,9 +57,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 .footer{text-align:center;padding:32px 0 16px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.15)}
 .footer span{color:#D4872C}
-
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
-@media(min-width:500px){.cards{max-width:440px;margin:0 auto}.pin-screen{max-width:400px;margin:0 auto}}
 </style>
 </head>
 <body>
@@ -76,7 +78,9 @@ var APPS = {
   feedback: { icon: '💬', label: 'Feedback', desc: 'Guest feedback', url: '/ambria-feedback/', css: 'c-feedback' },
 }
 
-var state = { user: null, pin: '', msg: '', error: false }
+var APP_COLORS = { ops: '#6366f1', attendance: '#22c55e', shoot: '#f97316', feedback: '#06b6d4' }
+
+var state = { user: null, allUsers: [], search: '', loading: true }
 
 function init() {
   var saved = null
@@ -84,83 +88,101 @@ function init() {
   if (saved && saved.name && saved.apps) {
     state.user = saved
     renderHub()
-  } else {
-    renderPin()
+  }
+  loadUsers()
+}
+
+async function loadUsers() {
+  try {
+    var res = await sb.rpc('hub_users_list')
+    if (res.error || !res.data) { state.allUsers = []; state.loading = false; render(); return }
+    state.allUsers = res.data
+    state.loading = false
+    if (!state.user) renderPicker()
+  } catch (e) {
+    state.allUsers = []
+    state.loading = false
+    if (!state.user) renderPicker()
   }
 }
 
-function renderPin() {
+function selectUser(u) {
+  state.user = { id: u.id, name: u.name, apps: u.apps }
+  try { localStorage.setItem('ambria_hub', JSON.stringify(state.user)) } catch (e) {}
+  renderHub()
+}
+
+function logout() {
+  try { localStorage.removeItem('ambria_hub') } catch (e) {}
   state.user = null
+  state.search = ''
+  renderPicker()
+}
+
+function render() {
+  if (state.user) renderHub()
+  else renderPicker()
+}
+
+function renderPicker() {
+  var q = state.search.toLowerCase()
+  var filtered = state.allUsers.filter(function (u) {
+    return !q || u.name.toLowerCase().indexOf(q) !== -1
+  })
+
+  var listHtml = ''
+  if (state.loading) {
+    listHtml = '<div class="pick-empty">Loading...</div>'
+  } else if (filtered.length === 0) {
+    listHtml = '<div class="pick-empty">' + (q ? 'No match for "' + state.search + '"' : 'No users found') + '</div>'
+  } else {
+    for (var i = 0; i < filtered.length; i++) {
+      var u = filtered[i]
+      var dots = ''
+      for (var j = 0; j < u.apps.length; j++) {
+        var color = APP_COLORS[u.apps[j]] || '#666'
+        dots += '<div class="pick-dot" style="background:' + color + '"></div>'
+      }
+      listHtml +=
+        '<div class="pick-item" data-idx="' + i + '">' +
+          '<div class="pick-avatar">' + u.name.charAt(0) + '</div>' +
+          '<div>' +
+            '<div class="pick-name">' + u.name + '</div>' +
+            '<div class="pick-apps">' + dots + '</div>' +
+          '</div>' +
+        '</div>'
+    }
+  }
+
   app.innerHTML =
-    '<div class="pin-screen">' +
-      '<div class="logo">A</div>' +
-      '<div class="brand">Ambria</div>' +
-      '<div class="pin-dots">' +
-        '<div class="dot' + (state.pin.length >= 1 ? ' filled' : '') + (state.error ? ' error' : '') + '"></div>' +
-        '<div class="dot' + (state.pin.length >= 2 ? ' filled' : '') + (state.error ? ' error' : '') + '"></div>' +
-        '<div class="dot' + (state.pin.length >= 3 ? ' filled' : '') + (state.error ? ' error' : '') + '"></div>' +
-        '<div class="dot' + (state.pin.length >= 4 ? ' filled' : '') + (state.error ? ' error' : '') + '"></div>' +
+    '<div class="pick-screen">' +
+      '<div class="pick-header">' +
+        '<div class="logo">A</div><br>' +
+        '<div class="brand">Ambria</div>' +
       '</div>' +
-      '<div class="pin-msg' + (state.error ? ' error' : '') + '">' + (state.msg || 'Enter your PIN') + '</div>' +
-      '<div class="keypad">' +
-        buildKeys() +
+      '<div class="pick-search">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>' +
+        '<input type="text" id="hub-search" placeholder="Search your name..." value="' + state.search + '">' +
       '</div>' +
+      '<div class="pick-count">' + filtered.length + ' people</div>' +
+      '<div class="pick-list">' + listHtml + '</div>' +
+      '<div class="footer">Ambria <span>●</span> Hub</div>' +
     '</div>'
 
-  app.querySelectorAll('.key').forEach(function (el) {
-    el.addEventListener('click', function () { handleKey(el.dataset.val) })
+  var searchInput = document.getElementById('hub-search')
+  searchInput.addEventListener('input', function (e) {
+    state.search = e.target.value
+    renderPicker()
+    var el = document.getElementById('hub-search')
+    if (el) { el.focus(); el.setSelectionRange(state.search.length, state.search.length) }
   })
-}
 
-function buildKeys() {
-  var keys = ['1','2','3','4','5','6','7','8','9','','0','back']
-  var html = ''
-  for (var i = 0; i < keys.length; i++) {
-    var k = keys[i]
-    if (k === '') { html += '<div class="key empty"></div>'; continue }
-    if (k === 'back') { html += '<div class="key back" data-val="back">⌫</div>'; continue }
-    html += '<div class="key" data-val="' + k + '">' + k + '</div>'
-  }
-  return html
-}
-
-function handleKey(val) {
-  if (state.error) { state.error = false; state.pin = ''; state.msg = '' }
-  if (val === 'back') {
-    state.pin = state.pin.slice(0, -1)
-    renderPin()
-    return
-  }
-  if (state.pin.length >= 4) return
-  state.pin = state.pin + val
-  if (state.pin.length === 4) {
-    state.msg = 'Checking...'
-    renderPin()
-    checkPin(state.pin)
-  } else {
-    renderPin()
-  }
-}
-
-async function checkPin(pin) {
-  try {
-    var { data, error } = await sb.rpc('hub_login', { p_pin: pin })
-    if (error || !data || data.error) {
-      state.error = true
-      state.pin = ''
-      state.msg = 'Invalid PIN'
-      renderPin()
-      return
-    }
-    state.user = { id: data.id, name: data.name, apps: data.apps }
-    try { localStorage.setItem('ambria_hub', JSON.stringify(state.user)) } catch (e) {}
-    renderHub()
-  } catch (e) {
-    state.error = true
-    state.pin = ''
-    state.msg = 'Connection error'
-    renderPin()
-  }
+  app.querySelectorAll('.pick-item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var idx = Number(el.dataset.idx)
+      selectUser(filtered[idx])
+    })
+  })
 }
 
 function renderHub() {
@@ -188,20 +210,13 @@ function renderHub() {
             '<div class="hub-sub">Ambria</div>' +
           '</div>' +
         '</div>' +
-        '<button class="logout-btn" id="logout">Sign out</button>' +
+        '<button class="logout-btn" id="logout">Switch</button>' +
       '</div>' +
       '<div class="cards">' + cards + '</div>' +
       '<div class="footer">Ambria <span>●</span> Hub</div>' +
     '</div>'
 
-  document.getElementById('logout').addEventListener('click', function () {
-    try { localStorage.removeItem('ambria_hub') } catch (e) {}
-    state.user = null
-    state.pin = ''
-    state.msg = ''
-    state.error = false
-    renderPin()
-  })
+  document.getElementById('logout').addEventListener('click', logout)
 }
 
 init()
