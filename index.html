@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Ambria</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%234A1111'/><text x='50' y='62' text-anchor='middle' fill='white' font-size='28' font-weight='bold' font-family='sans-serif'>A</text><circle cx='72' cy='28' r='5' fill='%23D4872C'/></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f0f1a;color:#fff;min-height:100dvh;overflow-x:hidden}
+.pin-screen{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#4A1111,#8B2D2D);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;position:relative}
+.logo::after{content:'';position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:#D4872C}
+.brand{font-size:13px;letter-spacing:6px;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:600;margin-bottom:40px}
+.pin-dots{display:flex;gap:12px;margin-bottom:32px;height:20px}
+.dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.2);transition:all .15s}
+.dot.filled{background:#D4872C;border-color:#D4872C;transform:scale(1.1)}
+.dot.error{border-color:#ef4444;animation:shake .4s}
+.pin-msg{font-size:13px;color:rgba(255,255,255,.35);margin-bottom:24px;height:18px;text-align:center}
+.pin-msg.error{color:#ef4444}
+.keypad{display:grid;grid-template-columns:repeat(3,72px);gap:12px}
+.key{width:72px;height:56px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:22px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s;-webkit-tap-highlight-color:transparent;user-select:none}
+.key:active{background:rgba(255,255,255,.12);transform:scale(.95)}
+.key.back{font-size:16px;color:rgba(255,255,255,.4)}
+.key.empty{border:none;background:none;cursor:default}
+
+.hub-screen{min-height:100dvh;padding:0 0 32px}
+.hub-header{padding:20px 20px 16px;display:flex;align-items:center;justify-content:space-between}
+.hub-user{display:flex;align-items:center;gap:12px}
+.avatar{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#4A1111,#8B2D2D);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
+.hub-name{font-size:16px;font-weight:700;color:#fff}
+.hub-sub{font-size:11px;color:rgba(255,255,255,.35);margin-top:1px}
+.logout-btn{padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:none;color:rgba(255,255,255,.35);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.logout-btn:active{background:rgba(255,255,255,.08)}
+
+.cards{padding:0 16px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.card{border-radius:20px;padding:28px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;cursor:pointer;transition:all .2s;text-decoration:none;border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden}
+.card:active{transform:scale(.97)}
+.card::before{content:'';position:absolute;top:0;right:0;width:80px;height:80px;border-radius:50%;filter:blur(40px);opacity:.3}
+.card-icon{font-size:28px;z-index:1}
+.card-label{font-size:14px;font-weight:700;color:#fff;z-index:1;line-height:1.3}
+.card-desc{font-size:11px;color:rgba(255,255,255,.4);z-index:1}
+
+.c-ops{background:linear-gradient(135deg,#1a1a3e,#252550)}.c-ops::before{background:#6366f1}
+.c-attendance{background:linear-gradient(135deg,#1a2e1a,#1f3d1f)}.c-attendance::before{background:#22c55e}
+.c-shoot{background:linear-gradient(135deg,#2e1a1a,#3d1f1f)}.c-shoot::before{background:#f97316}
+.c-feedback{background:linear-gradient(135deg,#1a2e2e,#1f3d3d)}.c-feedback::before{background:#06b6d4}
+
+.footer{text-align:center;padding:32px 0 16px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.15)}
+.footer span{color:#D4872C}
+
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@media(min-width:500px){.cards{max-width:440px;margin:0 auto}.pin-screen{max-width:400px;margin:0 auto}}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+var SUPABASE_URL = 'https://ptksdithbytzrznplfiq.supabase.co'
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0a3NkaXRoYnl0enJ6bnBsZmlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NDEzNDksImV4cCI6MjA4OTMxNzM0OX0.209RbAzGEWoF_tD0jEiKwfrQRFYPucT42rlOogeQ5-k'
+
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+var app = document.getElementById('app')
+
+var APPS = {
+  ops: { icon: '📦', label: 'Ambria Ops', desc: 'Inventory & Events', url: '/ambria-ops/', css: 'c-ops' },
+  attendance: { icon: '📋', label: 'Attendance', desc: 'Staff tracking', url: '/ambria-attendance/', css: 'c-attendance' },
+  shoot: { icon: '📸', label: 'Shoot Tracker', desc: 'Photo shoots', url: '/shoot-tracker/', css: 'c-shoot' },
+  feedback: { icon: '💬', label: 'Feedback', desc: 'Guest feedback', url: '/ambria-feedback/', css: 'c-feedback' },
+}
+
+var state = { user: null, pin: '', msg: '', error: false }
+
+function init() {
+  var saved = null
+  try { saved = JSON.parse(localStorage.getItem('ambria_hub')) } catch (e) {}
+  if (saved && saved.name && saved.apps) {
+    state.user = saved
+    renderHub()
+  } else {
+    renderPin()
+  }
+}
+
+function renderPin() {
+  state.user = null
+  app.innerHTML =
+    '<div class="pin-screen">' +
+      '<div class="logo">A</div>' +
+      '<div class="brand">Ambria</div>' +
+      '<div class="pin-dots">' +
+        '<div class="dot' + (state.pin.length >= 1 ? ' filled' : '') + (state.error ? ' error' : '') + '"></div>' +
+        '<div class="dot' + (state.pin.length >= 2 ? ' filled' : '') + (state.error ? ' error' : '') + '"></div>' +
+        '<div class="dot' + (state.pin.length >= 3 ? ' filled' : '') + (state.error ? ' error' : '') + '"></div>' +
+        '<div class="dot' + (state.pin.length >= 4 ? ' filled' : '') + (state.error ? ' error' : '') + '"></div>' +
+      '</div>' +
+      '<div class="pin-msg' + (state.error ? ' error' : '') + '">' + (state.msg || 'Enter your PIN') + '</div>' +
+      '<div class="keypad">' +
+        buildKeys() +
+      '</div>' +
+    '</div>'
+
+  app.querySelectorAll('.key').forEach(function (el) {
+    el.addEventListener('click', function () { handleKey(el.dataset.val) })
+  })
+}
+
+function buildKeys() {
+  var keys = ['1','2','3','4','5','6','7','8','9','','0','back']
+  var html = ''
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i]
+    if (k === '') { html += '<div class="key empty"></div>'; continue }
+    if (k === 'back') { html += '<div class="key back" data-val="back">⌫</div>'; continue }
+    html += '<div class="key" data-val="' + k + '">' + k + '</div>'
+  }
+  return html
+}
+
+function handleKey(val) {
+  if (state.error) { state.error = false; state.pin = ''; state.msg = '' }
+  if (val === 'back') {
+    state.pin = state.pin.slice(0, -1)
+    renderPin()
+    return
+  }
+  if (state.pin.length >= 4) return
+  state.pin = state.pin + val
+  if (state.pin.length === 4) {
+    state.msg = 'Checking...'
+    renderPin()
+    checkPin(state.pin)
+  } else {
+    renderPin()
+  }
+}
+
+async function checkPin(pin) {
+  try {
+    var { data, error } = await sb.rpc('hub_login', { p_pin: pin })
+    if (error || !data || data.error) {
+      state.error = true
+      state.pin = ''
+      state.msg = 'Invalid PIN'
+      renderPin()
+      return
+    }
+    state.user = { id: data.id, name: data.name, apps: data.apps }
+    try { localStorage.setItem('ambria_hub', JSON.stringify(state.user)) } catch (e) {}
+    renderHub()
+  } catch (e) {
+    state.error = true
+    state.pin = ''
+    state.msg = 'Connection error'
+    renderPin()
+  }
+}
+
+function renderHub() {
+  var u = state.user
+  var cards = ''
+  for (var i = 0; i < u.apps.length; i++) {
+    var key = u.apps[i]
+    var a = APPS[key]
+    if (!a) continue
+    cards +=
+      '<a href="' + a.url + '" class="card ' + a.css + '">' +
+        '<div class="card-icon">' + a.icon + '</div>' +
+        '<div class="card-label">' + a.label + '</div>' +
+        '<div class="card-desc">' + a.desc + '</div>' +
+      '</a>'
+  }
+
+  app.innerHTML =
+    '<div class="hub-screen">' +
+      '<div class="hub-header">' +
+        '<div class="hub-user">' +
+          '<div class="avatar">' + u.name.charAt(0) + '</div>' +
+          '<div>' +
+            '<div class="hub-name">' + u.name + '</div>' +
+            '<div class="hub-sub">Ambria</div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="logout-btn" id="logout">Sign out</button>' +
+      '</div>' +
+      '<div class="cards">' + cards + '</div>' +
+      '<div class="footer">Ambria <span>●</span> Hub</div>' +
+    '</div>'
+
+  document.getElementById('logout').addEventListener('click', function () {
+    try { localStorage.removeItem('ambria_hub') } catch (e) {}
+    state.user = null
+    state.pin = ''
+    state.msg = ''
+    state.error = false
+    renderPin()
+  })
+}
+
+init()
+</script>
+</body>
+</html>
