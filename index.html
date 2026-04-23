@@ -57,6 +57,49 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 .footer{text-align:center;padding:32px 0 16px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,.15)}
 .footer span{color:#D4872C}
+
+.admin-screen{min-height:100dvh;padding:0 0 32px;max-width:540px;margin:0 auto}
+.admin-header{padding:20px 16px 16px;display:flex;align-items:center;justify-content:space-between}
+.admin-title{font-size:18px;font-weight:700;color:#fff}
+.admin-sub{font-size:11px;color:rgba(255,255,255,.35);margin-top:1px}
+.admin-list{padding:0 16px}
+.admin-row{padding:14px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s}
+.admin-row:active{background:rgba(255,255,255,.1)}
+.admin-row.inactive{opacity:.4}
+.admin-meta{flex:1;min-width:0}
+.admin-meta-name{font-size:14px;font-weight:600;color:#fff}
+.admin-meta-sub{font-size:11px;color:rgba(255,255,255,.35);margin-top:2px}
+.admin-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.admin-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;text-transform:uppercase;letter-spacing:.5px}
+.admin-actions{display:flex;gap:6px;flex-shrink:0}
+.abtn{padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:none;color:rgba(255,255,255,.5);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.abtn:active{background:rgba(255,255,255,.08)}
+.abtn-add{border-color:#6366f1;color:#818cf8;background:rgba(99,102,241,.1)}
+.abtn-del{border-color:#ef4444;color:#f87171}
+.admin-search{padding:0 16px;margin-bottom:12px}
+.admin-search input{width:100%;padding:12px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:15px;outline:none}
+.admin-search input:focus{border-color:rgba(255,255,255,.2)}
+.admin-search input::placeholder{color:rgba(255,255,255,.25)}
+
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal-box{background:#1a1a2e;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;width:100%;max-width:400px}
+.modal-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:16px}
+.modal-field{margin-bottom:12px}
+.modal-label{font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.modal-input{width:100%;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#fff;font-size:15px;outline:none}
+.modal-input:focus{border-color:rgba(255,255,255,.2)}
+.modal-checks{display:flex;flex-wrap:wrap;gap:8px}
+.modal-check{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);cursor:pointer;transition:all .15s;font-size:13px;color:rgba(255,255,255,.6)}
+.modal-check.checked{border-color:#6366f1;background:rgba(99,102,241,.15);color:#fff}
+.modal-toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.6);cursor:pointer}
+.modal-btns{display:flex;gap:8px;margin-top:16px}
+.mbtn{flex:1;padding:12px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s}
+.mbtn-cancel{background:rgba(255,255,255,.06);color:rgba(255,255,255,.5)}
+.mbtn-save{background:#6366f1;color:#fff}
+.mbtn-save:disabled{opacity:.4;cursor:default}
+.mbtn:active{transform:scale(.97)}
+.gear-btn{padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:none;color:rgba(255,255,255,.35);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+.gear-btn:active{background:rgba(255,255,255,.08)}
 </style>
 </head>
 <body>
@@ -87,6 +130,7 @@ function init() {
   try { saved = JSON.parse(localStorage.getItem('ambria_hub')) } catch (e) {}
   if (saved && saved.name && saved.apps) {
     state.user = saved
+    state.user.is_admin = saved.is_admin || false
     renderHub()
   }
   loadUsers()
@@ -107,7 +151,7 @@ async function loadUsers() {
 }
 
 function selectUser(u) {
-  state.user = { id: u.id, name: u.name, apps: u.apps }
+  state.user = { id: u.id, name: u.name, apps: u.apps, is_admin: u.is_admin || false }
   try { localStorage.setItem('ambria_hub', JSON.stringify(state.user)) } catch (e) {}
   renderHub()
 }
@@ -117,6 +161,211 @@ function logout() {
   state.user = null
   state.search = ''
   renderPicker()
+}
+var adminState = { users: [], search: '', editing: null, loading: false }
+
+async function loadAdminUsers() {
+  adminState.loading = true
+  renderAdmin()
+  var res = await sb.rpc('hub_admin_list')
+  adminState.users = res.data || []
+  adminState.loading = false
+  renderAdmin()
+}
+
+async function saveAdminUser(u) {
+  var { error } = await sb.rpc('hub_admin_upsert', {
+    p_id: u.id || 0,
+    p_name: u.name,
+    p_apps: u.apps,
+    p_pin: u.pin || '',
+    p_active: u.active !== false,
+    p_is_admin: u.is_admin || false,
+  })
+  if (error) { alert('Save failed: ' + error.message); return }
+  adminState.editing = null
+  loadAdminUsers()
+  loadUsers()
+}
+
+async function deleteAdminUser(id) {
+  if (!confirm('Delete this user permanently?')) return
+  var { error } = await sb.rpc('hub_admin_delete', { p_id: id })
+  if (error) { alert('Delete failed: ' + error.message); return }
+  loadAdminUsers()
+  loadUsers()
+}
+
+function openEditModal(u) {
+  adminState.editing = u ? JSON.parse(JSON.stringify(u)) : { id: null, name: '', apps: [], pin: '', active: true, is_admin: false }
+  renderAdmin()
+}
+
+function renderAdmin() {
+  var q = adminState.search.toLowerCase()
+  var filtered = adminState.users.filter(function (u) {
+    return !q || u.name.toLowerCase().indexOf(q) !== -1
+  })
+
+  var listHtml = ''
+  if (adminState.loading) {
+    listHtml = '<div class="pick-empty">Loading...</div>'
+  } else {
+    for (var i = 0; i < filtered.length; i++) {
+      var u = filtered[i]
+      var badges = ''
+      for (var j = 0; j < u.apps.length; j++) {
+        var color = APP_COLORS[u.apps[j]] || '#666'
+        badges += '<span class="admin-badge" style="background:' + color + '22;color:' + color + '">' + u.apps[j] + '</span>'
+      }
+      if (u.is_admin) badges += '<span class="admin-badge" style="background:#f59e0b22;color:#f59e0b">admin</span>'
+      listHtml +=
+        '<div class="admin-row' + (u.active ? '' : ' inactive') + '" data-idx="' + i + '">' +
+          '<div class="pick-avatar">' + u.name.charAt(0) + '</div>' +
+          '<div class="admin-meta">' +
+            '<div class="admin-meta-name">' + u.name + (!u.active ? ' <span style="color:#ef4444;font-size:10px">INACTIVE</span>' : '') + '</div>' +
+            '<div class="admin-meta-sub">' + (u.pin || 'No PIN') + '</div>' +
+            '<div class="admin-badges">' + badges + '</div>' +
+          '</div>' +
+          '<div class="admin-actions">' +
+            '<button class="abtn admin-edit" data-idx="' + i + '">Edit</button>' +
+            '<button class="abtn abtn-del admin-del" data-idx="' + i + '">✕</button>' +
+          '</div>' +
+        '</div>'
+    }
+  }
+
+  var modalHtml = ''
+  if (adminState.editing) {
+    var e = adminState.editing
+    var appKeys = Object.keys(APPS)
+    var appChecks = ''
+    for (var k = 0; k < appKeys.length; k++) {
+      var key = appKeys[k]
+      var isOn = e.apps.indexOf(key) !== -1
+      appChecks += '<div class="modal-check' + (isOn ? ' checked' : '') + '" data-app="' + key + '">' + APPS[key].icon + ' ' + APPS[key].label + '</div>'
+    }
+    modalHtml =
+      '<div class="modal-bg" id="modal-bg">' +
+        '<div class="modal-box">' +
+          '<div class="modal-title">' + (e.id ? 'Edit User' : 'Add User') + '</div>' +
+          '<div class="modal-field">' +
+            '<div class="modal-label">Name</div>' +
+            '<input class="modal-input" id="m-name" value="' + (e.name || '') + '" placeholder="Full name">' +
+          '</div>' +
+          '<div class="modal-field">' +
+            '<div class="modal-label">PIN (optional)</div>' +
+            '<input class="modal-input" id="m-pin" value="' + (e.pin || '') + '" placeholder="4-digit PIN">' +
+          '</div>' +
+          '<div class="modal-field">' +
+            '<div class="modal-label">Apps</div>' +
+            '<div class="modal-checks" id="m-apps">' + appChecks + '</div>' +
+          '</div>' +
+          '<div class="modal-field">' +
+            '<label class="modal-toggle" id="m-active">' +
+              '<input type="checkbox"' + (e.active !== false ? ' checked' : '') + '> Active' +
+            '</label>' +
+          '</div>' +
+          '<div class="modal-field">' +
+            '<label class="modal-toggle" id="m-admin">' +
+              '<input type="checkbox"' + (e.is_admin ? ' checked' : '') + '> Hub Admin' +
+            '</label>' +
+          '</div>' +
+          '<div class="modal-btns">' +
+            '<button class="mbtn mbtn-cancel" id="m-cancel">Cancel</button>' +
+            '<button class="mbtn mbtn-save" id="m-save">Save</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+  }
+
+  app.innerHTML =
+    '<div class="admin-screen">' +
+      '<div class="admin-header">' +
+        '<div>' +
+          '<div class="admin-title">Manage Users</div>' +
+          '<div class="admin-sub">' + adminState.users.length + ' total users</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px">' +
+          '<button class="abtn abtn-add" id="admin-add">+ Add</button>' +
+          '<button class="abtn" id="admin-back">← Back</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="admin-search">' +
+        '<input type="text" id="admin-search" placeholder="Search users..." value="' + adminState.search + '">' +
+      '</div>' +
+      '<div class="admin-list">' + listHtml + '</div>' +
+      '<div class="footer">Ambria <span>●</span> Hub Admin</div>' +
+    '</div>' +
+    modalHtml
+
+  // Wire events
+  var backBtn = document.getElementById('admin-back')
+  if (backBtn) backBtn.addEventListener('click', function () { renderHub() })
+
+  var addBtn = document.getElementById('admin-add')
+  if (addBtn) addBtn.addEventListener('click', function () { openEditModal(null) })
+
+  var searchEl = document.getElementById('admin-search')
+  if (searchEl) searchEl.addEventListener('input', function (ev) {
+    adminState.search = ev.target.value
+    renderAdmin()
+    var el2 = document.getElementById('admin-search')
+    if (el2) { el2.focus(); el2.setSelectionRange(adminState.search.length, adminState.search.length) }
+  })
+
+  app.querySelectorAll('.admin-edit').forEach(function (el) {
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation()
+      openEditModal(filtered[Number(el.dataset.idx)])
+    })
+  })
+
+  app.querySelectorAll('.admin-del').forEach(function (el) {
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation()
+      deleteAdminUser(filtered[Number(el.dataset.idx)].id)
+    })
+  })
+
+  // Modal events
+  var modalBg = document.getElementById('modal-bg')
+  if (modalBg) modalBg.addEventListener('click', function (ev) {
+    if (ev.target === modalBg) { adminState.editing = null; renderAdmin() }
+  })
+
+  var cancelBtn = document.getElementById('m-cancel')
+  if (cancelBtn) cancelBtn.addEventListener('click', function () { adminState.editing = null; renderAdmin() })
+
+  app.querySelectorAll('.modal-check').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var appKey = el.dataset.app
+      var idx = adminState.editing.apps.indexOf(appKey)
+      if (idx === -1) adminState.editing.apps.push(appKey)
+      else adminState.editing.apps.splice(idx, 1)
+      renderAdmin()
+    })
+  })
+
+  var activeEl = document.getElementById('m-active')
+  if (activeEl) activeEl.addEventListener('change', function () {
+    adminState.editing.active = activeEl.querySelector('input').checked
+  })
+
+  var adminEl = document.getElementById('m-admin')
+  if (adminEl) adminEl.addEventListener('change', function () {
+    adminState.editing.is_admin = adminEl.querySelector('input').checked
+  })
+
+  var saveBtn = document.getElementById('m-save')
+  if (saveBtn) saveBtn.addEventListener('click', function () {
+    var nameVal = document.getElementById('m-name').value.trim()
+    var pinVal = document.getElementById('m-pin').value.trim()
+    if (!nameVal) { alert('Name required'); return }
+    adminState.editing.name = nameVal
+    adminState.editing.pin = pinVal
+    saveAdminUser(adminState.editing)
+  })
 }
 
 function render() {
@@ -210,6 +459,7 @@ function renderHub() {
             '<div class="hub-sub">Ambria</div>' +
           '</div>' +
         '</div>' +
+        (u.is_admin ? '<button class="gear-btn" id="admin-btn">⚙ Admin</button> ' : '') +
         '<button class="logout-btn" id="logout">Switch</button>' +
       '</div>' +
       '<div class="cards">' + cards + '</div>' +
@@ -217,6 +467,8 @@ function renderHub() {
     '</div>'
 
   document.getElementById('logout').addEventListener('click', logout)
+  var adminBtn = document.getElementById('admin-btn')
+  if (adminBtn) adminBtn.addEventListener('click', function () { loadAdminUsers() })
 }
 
 init()
