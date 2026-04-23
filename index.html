@@ -102,6 +102,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .mbtn:active{transform:scale(.97)}
 .gear-btn{padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:none;color:rgba(255,255,255,.35);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
 .gear-btn:active{background:rgba(255,255,255,.08)}
+.pin-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.pin-box{background:#1a1a2e;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;width:100%;max-width:320px;text-align:center}
+.pin-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:4px}
+.pin-sub{font-size:12px;color:rgba(255,255,255,.35);margin-bottom:16px}
+.pin-input{width:100%;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#fff;font-size:24px;text-align:center;letter-spacing:12px;outline:none}
+.pin-input:focus{border-color:rgba(255,255,255,.2)}
+.pin-input::placeholder{letter-spacing:4px;font-size:14px;color:rgba(255,255,255,.2)}
+.pin-err{font-size:12px;color:#f87171;margin-top:8px}
+.pin-btns{display:flex;gap:8px;margin-top:16px}
 </style>
 </head>
 <body>
@@ -165,6 +174,47 @@ function logout() {
   state.user = null
   state.search = ''
   renderPicker()
+}
+function showAdminPinPrompt() {
+  var overlay = document.createElement('div')
+  overlay.className = 'pin-modal-bg'
+  overlay.innerHTML =
+    '<div class="pin-box">' +
+      '<div class="pin-title">Admin Access</div>' +
+      '<div class="pin-sub">Enter your PIN to continue</div>' +
+      '<input class="pin-input" id="pin-entry" type="password" inputmode="numeric" maxlength="6" placeholder="PIN">' +
+      '<div class="pin-err" id="pin-err" style="display:none"></div>' +
+      '<div class="pin-btns">' +
+        '<button class="mbtn mbtn-cancel" id="pin-cancel">Cancel</button>' +
+        '<button class="mbtn mbtn-save" id="pin-go">Enter</button>' +
+      '</div>' +
+    '</div>'
+  document.body.appendChild(overlay)
+
+  var pinInput = document.getElementById('pin-entry')
+  var errEl = document.getElementById('pin-err')
+  pinInput.focus()
+
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove() })
+  document.getElementById('pin-cancel').addEventListener('click', function () { overlay.remove() })
+
+  async function verifyPin() {
+    var pin = pinInput.value.trim()
+    if (!pin) { errEl.textContent = 'Enter PIN'; errEl.style.display = 'block'; return }
+    var { data, error } = await sb.rpc('hub_verify_admin_pin', { p_user_id: state.user.id, p_pin: pin })
+    if (error || !data) {
+      errEl.textContent = 'Invalid PIN'
+      errEl.style.display = 'block'
+      pinInput.value = ''
+      pinInput.focus()
+      return
+    }
+    overlay.remove()
+    loadAdminUsers()
+  }
+
+  document.getElementById('pin-go').addEventListener('click', verifyPin)
+  pinInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') verifyPin() })
 }
 var adminState = { users: [], search: '', editing: null, loading: false }
 
@@ -472,7 +522,7 @@ function renderHub() {
 
   document.getElementById('logout').addEventListener('click', logout)
   var adminBtn = document.getElementById('admin-btn')
-  if (adminBtn) adminBtn.addEventListener('click', function () { loadAdminUsers() })
+  if (adminBtn) adminBtn.addEventListener('click', function () { showAdminPinPrompt() })
 }
 
 init()
