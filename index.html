@@ -166,9 +166,59 @@ async function loadUsers() {
 }
 
 function selectUser(u) {
-  state.user = { id: u.id, name: u.name, apps: u.apps, is_admin: u.is_admin || false }
-  try { localStorage.setItem('ambria_hub', JSON.stringify(state.user)) } catch (e) {}
-  renderHub()
+  if (!u.has_pin) {
+    // No PIN set — allow direct access
+    state.user = { id: u.id, name: u.name, apps: u.apps, is_admin: u.is_admin || false }
+    try { localStorage.setItem('ambria_hub', JSON.stringify(state.user)) } catch (e) {}
+    renderHub()
+    return
+  }
+  showLoginPin(u)
+}
+
+function showLoginPin(u) {
+  var overlay = document.createElement('div')
+  overlay.className = 'pin-modal-bg'
+  overlay.innerHTML =
+    '<div class="pin-box">' +
+      '<div class="pick-avatar" style="margin:0 auto 12px;width:48px;height:48px;font-size:20px;border-radius:14px">' + u.name.charAt(0) + '</div>' +
+      '<div class="pin-title">' + u.name + '</div>' +
+      '<div class="pin-sub">Enter your PIN to continue</div>' +
+      '<input class="pin-input" id="login-pin" type="password" inputmode="numeric" maxlength="6" placeholder="PIN">' +
+      '<div class="pin-err" id="login-pin-err" style="display:none"></div>' +
+      '<div class="pin-btns">' +
+        '<button class="mbtn mbtn-cancel" id="login-pin-cancel">Cancel</button>' +
+        '<button class="mbtn mbtn-save" id="login-pin-go">Enter</button>' +
+      '</div>' +
+    '</div>'
+  document.body.appendChild(overlay)
+
+  var pinInput = document.getElementById('login-pin')
+  var errEl = document.getElementById('login-pin-err')
+  pinInput.focus()
+
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove() })
+  document.getElementById('login-pin-cancel').addEventListener('click', function () { overlay.remove() })
+
+  async function verifyLogin() {
+    var pin = pinInput.value.trim()
+    if (!pin) { errEl.textContent = 'Enter PIN'; errEl.style.display = 'block'; return }
+    var { data, error } = await sb.rpc('hub_verify_login_pin', { p_user_id: u.id, p_pin: pin })
+    if (error || !data) {
+      errEl.textContent = 'Wrong PIN'
+      errEl.style.display = 'block'
+      pinInput.value = ''
+      pinInput.focus()
+      return
+    }
+    overlay.remove()
+    state.user = { id: u.id, name: u.name, apps: u.apps, is_admin: u.is_admin || false }
+    try { localStorage.setItem('ambria_hub', JSON.stringify(state.user)) } catch (e) {}
+    renderHub()
+  }
+
+  document.getElementById('login-pin-go').addEventListener('click', verifyLogin)
+  pinInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') verifyLogin() })
 }
 
 function logout() {
@@ -443,17 +493,11 @@ function renderPicker() {
   } else {
     for (var i = 0; i < filtered.length; i++) {
       var u = filtered[i]
-      var dots = ''
-      for (var j = 0; j < u.apps.length; j++) {
-        var color = APP_COLORS[u.apps[j]] || '#666'
-        dots += '<div class="pick-dot" style="background:' + color + '"></div>'
-      }
       listHtml +=
         '<div class="pick-item" data-idx="' + i + '">' +
           '<div class="pick-avatar">' + u.name.charAt(0) + '</div>' +
           '<div>' +
             '<div class="pick-name">' + u.name + '</div>' +
-            '<div class="pick-apps">' + dots + '</div>' +
           '</div>' +
         '</div>'
     }
