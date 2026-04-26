@@ -157,7 +157,20 @@ async function loadUsers() {
     if (res.error || !res.data) { state.allUsers = []; state.loading = false; render(); return }
     state.allUsers = res.data
     state.loading = false
-    if (!state.user) renderPicker()
+    if (state.user) {
+      var fresh = res.data.find(function (u) { return u.id === state.user.id })
+      if (!fresh) { logout(); return }
+      var appsChanged = JSON.stringify(state.user.apps) !== JSON.stringify(fresh.apps)
+      var adminChanged = state.user.is_admin !== (fresh.is_admin || false)
+      if (appsChanged || adminChanged) {
+        state.user.apps = fresh.apps
+        state.user.is_admin = fresh.is_admin || false
+        try { localStorage.setItem('ambria_hub', JSON.stringify(state.user)) } catch (e) {}
+        renderHub()
+      }
+    } else {
+      renderPicker()
+    }
   } catch (e) {
     state.allUsers = []
     state.loading = false
