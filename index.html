@@ -572,6 +572,30 @@ function renderHub() {
 }
 
 init()
+
+// Fix stale cache: re-fetch user data when app returns to foreground
+document.addEventListener('visibilitychange', async function () {
+  if (document.visibilityState !== 'visible' || !state.user) return
+  try {
+    var res = await sb.rpc('hub_users_list')
+    if (res.error || !res.data) return
+    state.allUsers = res.data
+    var fresh = res.data.find(function (u) { return u.id === state.user.id })
+    if (!fresh) {
+      logout()
+      return
+    }
+    var appsChanged = JSON.stringify(state.user.apps) !== JSON.stringify(fresh.apps)
+    var adminChanged = state.user.is_admin !== (fresh.is_admin || false)
+    if (appsChanged || adminChanged) {
+      state.user.apps = fresh.apps
+      state.user.is_admin = fresh.is_admin || false
+      try { localStorage.setItem('ambria_hub', JSON.stringify(state.user)) } catch (e) {}
+      renderHub()
+    }
+  } catch (e) {}
+})
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')
 </script>
 </body>
