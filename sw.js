@@ -1,4 +1,4 @@
-var CACHE = 'hub-v3'
+var CACHE = 'hub-v4'
 
 self.addEventListener('install', function () { self.skipWaiting() })
 
