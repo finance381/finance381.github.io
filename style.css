@@ -46,6 +46,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .c-calendar{background:linear-gradient(145deg,#ede9fe,#ddd6fe)}.c-calendar::before{background:#c084fc}
 .c-workforce{background:linear-gradient(145deg,#fef3c7,#fde68a)}.c-workforce::before{background:#fbbf24}
 .c-decor{background:linear-gradient(145deg,#ffe4e6,#fecdd3)}.c-decor::before{background:#fb7185}
+.c-fnb{background:linear-gradient(145deg,#d1fae5,#a7f3d0)}.c-fnb::before{background:#34d399}
+.c-decor-sales{background:linear-gradient(145deg,#e0e7ff,#c7d2fe)}.c-decor-sales::before{background:#6366f1}
+.c-fix{background:linear-gradient(145deg,#f1f5f9,#e2e8f0)}.c-fix::before{background:#64748b}
 
 .footer{text-align:center;padding:32px 0 16px;font-size:10px;letter-spacing:4px;text-transform:uppercase;color:rgba(0,0,0,.15)}
 .footer span{color:#A855F7}
