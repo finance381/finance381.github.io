@@ -217,11 +217,175 @@ async function deleteAdminUser(id) {
 }
 
 function openEditModal(u) {
+  bulkState.open = false
   adminState.editing = u ? JSON.parse(JSON.stringify(u)) : { id: null, name: '', apps: [], pin: '', active: true, is_admin: false }
   renderAdmin()
 }
 
+// ── Bulk import ──────────────────────────────────────────────────────
+var bulkState = { open: false, step: 'upload', rows: [], errors: [], defaultApps: [], defaultActive: true, defaultAdmin: false, progress: { done: 0, total: 0, failed: [] } }
+
+function openBulkImport() {
+  adminState.editing = null
+  bulkState = { open: true, step: 'upload', rows: [], errors: [], defaultApps: [], defaultActive: true, defaultAdmin: false, progress: { done: 0, total: 0, failed: [] } }
+  renderAdmin()
+}
+
+function closeBulkImport() {
+  bulkState.open = false
+  renderAdmin()
+}
+
+function downloadBulkTemplate() {
+  var csv = 'Name,PIN\n'
+  csv += 'Raju Kumar,1234\n'
+  csv += 'Amit Singh,\n'
+  var blob = new Blob([csv], { type: 'text/csv' })
+  var a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = 'ambria_hub_users_template.csv'
+  a.click()
+}
+
+function parseBulkCSVLine(line) {
+  var result = []
+  var current = ''
+  var inQuotes = false
+  for (var i = 0; i < line.length; i++) {
+    var ch = line[i]
+    if (ch === '"') inQuotes = !inQuotes
+    else if (ch === ',' && !inQuotes) { result.push(current); current = '' }
+    else current += ch
+  }
+  result.push(current)
+  return result
+}
+
+function handleBulkFile(e) {
+  var f = e.target.files[0]
+  if (!f) return
+  var reader = new FileReader()
+  reader.onload = function (ev) { parseBulkCSV(ev.target.result) }
+  reader.readAsText(f)
+}
+
+function parseBulkCSV(text) {
+  var lines = text.split('\n').map(function (l) { return l.trim() }).filter(Boolean)
+  if (lines.length < 1) { bulkState.errors = [{ msg: 'File is empty' }]; renderAdmin(); return }
+
+  var header = lines[0].toLowerCase()
+  var startIdx = header.indexOf('name') !== -1 ? 1 : 0
+
+  var existingNames = {}
+  adminState.users.forEach(function (u) { existingNames[u.name.toLowerCase().trim()] = true })
+
+  var errs = []
+  var seen = {}
+  var rows = []
+
+  for (var i = startIdx; i < lines.length; i++) {
+    var cols = parseBulkCSVLine(lines[i])
+    var rowNum = i + 1
+    var name = (cols[0] || '').trim()
+    var pin = (cols[1] || '').trim().replace(/[^0-9]/g, '')
+
+    if (!name) { errs.push({ msg: 'Row ' + rowNum + ': name is empty' }); continue }
+    if (seen[name.toLowerCase()]) { errs.push({ msg: 'Row ' + rowNum + ': duplicate name "' + name + '" in CSV — skipped' }); continue }
+    seen[name.toLowerCase()] = true
+    if (existingNames[name.toLowerCase()]) { errs.push({ msg: 'Row ' + rowNum + ': "' + name + '" already exists in the hub — will create a second entry unless removed' }) }
+
+    rows.push({ name: name, pin: pin, apps: [], active: true, is_admin: false })
+  }
+
+  bulkState.rows = rows
+  bulkState.errors = errs
+  bulkState.step = rows.length > 0 ? 'configure' : 'upload'
+  renderAdmin()
+}
+
+function syncBulkInputsFromDOM() {
+  document.querySelectorAll('.bulk-name').forEach(function (el) {
+    var idx = Number(el.dataset.idx)
+    if (bulkState.rows[idx]) bulkState.rows[idx].name = el.value
+  })
+  document.querySelectorAll('.bulk-pin').forEach(function (el) {
+    var idx = Number(el.dataset.idx)
+    if (bulkState.rows[idx]) bulkState.rows[idx].pin = el.value.replace(/[^0-9]/g, '')
+  })
+}
+
+function toggleBulkDefaultApp(appKey) {
+  var idx = bulkState.defaultApps.indexOf(appKey)
+  if (idx === -1) bulkState.defaultApps.push(appKey)
+  else bulkState.defaultApps.splice(idx, 1)
+  renderAdmin()
+}
+
+function toggleBulkRowApp(rowIdx, appKey) {
+  var row = bulkState.rows[rowIdx]
+  var idx = row.apps.indexOf(appKey)
+  if (idx === -1) row.apps.push(appKey)
+  else row.apps.splice(idx, 1)
+  renderAdmin()
+}
+
+function setBulkRowActive(rowIdx, val) {
+  bulkState.rows[rowIdx].active = val
+  renderAdmin()
+}
+
+function setBulkRowAdmin(rowIdx, val) {
+  bulkState.rows[rowIdx].is_admin = val
+  renderAdmin()
+}
+
+function removeBulkRow(rowIdx) {
+  bulkState.rows.splice(rowIdx, 1)
+  renderAdmin()
+}
+
+function applyBulkDefaultsToAll() {
+  bulkState.rows.forEach(function (r) {
+    r.apps = bulkState.defaultApps.slice()
+    r.active = bulkState.defaultActive
+    r.is_admin = bulkState.defaultAdmin
+  })
+  renderAdmin()
+}
+
+async function doBulkImport() {
+  bulkState.step = 'importing'
+  bulkState.progress = { done: 0, total: bulkState.rows.length, failed: [] }
+  renderAdmin()
+
+  for (var i = 0; i < bulkState.rows.length; i++) {
+    var r = bulkState.rows[i]
+    try {
+      var res = await sb.rpc('hub_admin_upsert', {
+        p_id: 0,
+        p_name: r.name,
+        p_apps: r.apps,
+        p_pin: r.pin || '',
+        p_active: r.active !== false,
+        p_is_admin: r.is_admin || false,
+      })
+      if (res.error) throw res.error
+      bulkState.progress.done++
+    } catch (err) {
+      bulkState.progress.failed.push({ name: r.name, msg: (err && err.message) || 'Failed' })
+    }
+    renderAdmin()
+  }
+
+  bulkState.step = 'done'
+  renderAdmin()
+  loadAdminUsers()
+  loadUsers()
+}
+
 function renderAdmin() {
+  if (bulkState.open && bulkState.step === 'configure') syncBulkInputsFromDOM()
+
   var q = adminState.search.toLowerCase()
   var filtered = adminState.users.filter(function (u) {
     return !q || u.name.toLowerCase().indexOf(q) !== -1
@@ -299,6 +463,119 @@ function renderAdmin() {
       '</div>'
   }
 
+  var bulkModalHtml = ''
+  if (bulkState.open) {
+    var appKeysB = Object.keys(APPS)
+
+    var bulkErrorsHtml = ''
+    if (bulkState.errors.length > 0) {
+      bulkErrorsHtml = '<div class="bulk-errors">' +
+        bulkState.errors.map(function (er) { return '<p>' + er.msg + '</p>' }).join('') +
+        '</div>'
+    }
+
+    if (bulkState.step === 'upload') {
+      bulkModalHtml =
+        '<div class="modal-bg" id="bulk-modal-bg">' +
+          '<div class="modal-box wide">' +
+            '<div class="modal-title">Bulk Import Users</div>' +
+            bulkErrorsHtml +
+            '<div class="bulk-drop">' +
+              '<p style="font-size:13px;color:rgba(0,0,0,.5);margin-bottom:10px">Upload a CSV with one user per row (Name, optional PIN). Permissions are set in the next step.</p>' +
+              '<input type="file" accept=".csv" class="bulk-file-input" id="bulk-file">' +
+              '<br><button class="bulk-tpl-btn" id="bulk-download-tpl">⬇ Download Template</button>' +
+            '</div>' +
+            '<div class="modal-btns">' +
+              '<button class="mbtn mbtn-cancel" id="bulk-cancel">Cancel</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+    } else if (bulkState.step === 'configure') {
+      var defaultChecks = ''
+      for (var db = 0; db < appKeysB.length; db++) {
+        var dkey = appKeysB[db]
+        var dOn = bulkState.defaultApps.indexOf(dkey) !== -1
+        defaultChecks += '<div class="modal-check bulk-default-app-check' + (dOn ? ' checked' : '') + '" data-app="' + dkey + '">' + APPS[dkey].icon + ' ' + APPS[dkey].label + '</div>'
+      }
+
+      var rowsHtml = ''
+      for (var ri = 0; ri < bulkState.rows.length; ri++) {
+        var row = bulkState.rows[ri]
+        var rowChecks = ''
+        for (var rk = 0; rk < appKeysB.length; rk++) {
+          var rkey = appKeysB[rk]
+          var rOn = row.apps.indexOf(rkey) !== -1
+          rowChecks += '<div class="modal-check bulk-check bulk-row-app-check' + (rOn ? ' checked' : '') + '" data-idx="' + ri + '" data-app="' + rkey + '">' + APPS[rkey].icon + ' ' + APPS[rkey].label + '</div>'
+        }
+        rowsHtml +=
+          '<div class="bulk-row" data-idx="' + ri + '">' +
+            '<div class="bulk-row-head">' +
+              '<div class="pick-avatar">' + (row.name.charAt(0) || '?') + '</div>' +
+              '<input class="modal-input bulk-name" data-idx="' + ri + '" value="' + row.name + '">' +
+              '<input class="modal-input bulk-pin bulk-pin-input" data-idx="' + ri + '" value="' + row.pin + '" placeholder="PIN">' +
+              '<button class="abtn abtn-del bulk-row-del" data-idx="' + ri + '">✕</button>' +
+            '</div>' +
+            '<div class="modal-checks">' + rowChecks + '</div>' +
+            '<div class="bulk-toggles">' +
+              '<label class="modal-toggle bulk-row-active" data-idx="' + ri + '"><input type="checkbox"' + (row.active !== false ? ' checked' : '') + '> Active</label>' +
+              '<label class="modal-toggle bulk-row-admin" data-idx="' + ri + '"><input type="checkbox"' + (row.is_admin ? ' checked' : '') + '> Hub Admin</label>' +
+            '</div>' +
+          '</div>'
+      }
+
+      bulkModalHtml =
+        '<div class="modal-bg" id="bulk-modal-bg">' +
+          '<div class="modal-box wide">' +
+            '<div class="modal-title">Set Permissions — ' + bulkState.rows.length + ' user' + (bulkState.rows.length !== 1 ? 's' : '') + '</div>' +
+            bulkErrorsHtml +
+            '<div class="bulk-defaults">' +
+              '<div class="bulk-defaults-head">' +
+                '<div class="modal-label" style="margin:0">Default access for all</div>' +
+                '<button class="bulk-apply-btn" id="bulk-apply-all">Apply to all rows ↓</button>' +
+              '</div>' +
+              '<div class="modal-checks">' + defaultChecks + '</div>' +
+              '<div class="bulk-toggles">' +
+                '<label class="modal-toggle" id="bulk-default-active"><input type="checkbox"' + (bulkState.defaultActive ? ' checked' : '') + '> Active</label>' +
+                '<label class="modal-toggle" id="bulk-default-admin"><input type="checkbox"' + (bulkState.defaultAdmin ? ' checked' : '') + '> Hub Admin</label>' +
+              '</div>' +
+            '</div>' +
+            '<div class="bulk-list">' + rowsHtml + '</div>' +
+            '<div class="modal-btns">' +
+              '<button class="mbtn mbtn-cancel" id="bulk-back">Back</button>' +
+              '<button class="mbtn mbtn-save" id="bulk-import-btn"' + (bulkState.rows.length === 0 ? ' disabled' : '') + '>Import ' + bulkState.rows.length + ' User' + (bulkState.rows.length !== 1 ? 's' : '') + '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+    } else if (bulkState.step === 'importing') {
+      var pctB = bulkState.progress.total > 0 ? Math.round((bulkState.progress.done / bulkState.progress.total) * 100) : 0
+      bulkModalHtml =
+        '<div class="modal-bg">' +
+          '<div class="modal-box wide">' +
+            '<div class="modal-title">Importing…</div>' +
+            '<div class="bulk-progress-bar"><div class="bulk-progress-fill" style="width:' + pctB + '%"></div></div>' +
+            '<p style="font-size:13px;color:rgba(0,0,0,.5);text-align:center">' + bulkState.progress.done + ' of ' + bulkState.progress.total + ' processed…</p>' +
+            (bulkState.progress.failed.length > 0 ? '<p style="font-size:12px;color:#dc2626;text-align:center;margin-top:6px">' + bulkState.progress.failed.length + ' failed so far</p>' : '') +
+          '</div>' +
+        '</div>'
+    } else if (bulkState.step === 'done') {
+      var failedListHtml = ''
+      if (bulkState.progress.failed.length > 0) {
+        failedListHtml = '<div class="bulk-errors">' +
+          bulkState.progress.failed.map(function (f) { return '<p>' + f.name + ': ' + f.msg + '</p>' }).join('') +
+          '</div>'
+      }
+      bulkModalHtml =
+        '<div class="modal-bg">' +
+          '<div class="modal-box wide">' +
+            '<div class="modal-title">Import Complete</div>' +
+            '<p style="font-size:14px;font-weight:600;color:#1c1c1e;text-align:center;margin-bottom:10px">' + bulkState.progress.done + ' of ' + bulkState.progress.total + ' users imported</p>' +
+            failedListHtml +
+            '<div class="modal-btns"><button class="mbtn mbtn-save" id="bulk-done">Done</button></div>' +
+          '</div>' +
+        '</div>'
+    }
+  }
+
   app.innerHTML =
     '<div class="admin-screen">' +
       '<div class="admin-header">' +
@@ -308,6 +585,7 @@ function renderAdmin() {
         '</div>' +
         '<div style="display:flex;gap:6px">' +
           '<button class="abtn abtn-add" id="admin-add">+ Add</button>' +
+          '<button class="abtn" id="admin-bulk">+ Bulk Import</button>' +
           '<button class="abtn" id="admin-back">← Back</button>' +
         '</div>' +
       '</div>' +
@@ -317,7 +595,8 @@ function renderAdmin() {
       '<div class="admin-list">' + listHtml + '</div>' +
       '<div class="footer">Ambria <span>●</span> Hub Admin</div>' +
     '</div>' +
-    modalHtml
+    modalHtml +
+    bulkModalHtml
 
   // Wire events
   var backBtn = document.getElementById('admin-back')
@@ -325,6 +604,9 @@ function renderAdmin() {
 
   var addBtn = document.getElementById('admin-add')
   if (addBtn) addBtn.addEventListener('click', function () { openEditModal(null) })
+
+  var bulkBtn = document.getElementById('admin-bulk')
+  if (bulkBtn) bulkBtn.addEventListener('click', openBulkImport)
 
   var searchEl = document.getElementById('admin-search')
   if (searchEl) searchEl.addEventListener('input', function (ev) {
@@ -359,6 +641,7 @@ function renderAdmin() {
 
   app.querySelectorAll('.modal-check').forEach(function (el) {
     el.addEventListener('click', function () {
+      if (!adminState.editing) return
       var appKey = el.dataset.app
       var idx = adminState.editing.apps.indexOf(appKey)
       if (idx === -1) adminState.editing.apps.push(appKey)
@@ -366,6 +649,59 @@ function renderAdmin() {
       renderAdmin()
     })
   })
+
+  // Bulk import events
+  if (bulkState.open) {
+    var bulkBg = document.getElementById('bulk-modal-bg')
+    if (bulkBg) bulkBg.addEventListener('click', function (ev) { if (ev.target === bulkBg) closeBulkImport() })
+
+    var bulkCancel = document.getElementById('bulk-cancel')
+    if (bulkCancel) bulkCancel.addEventListener('click', closeBulkImport)
+
+    var bulkFile = document.getElementById('bulk-file')
+    if (bulkFile) bulkFile.addEventListener('change', handleBulkFile)
+
+    var bulkTpl = document.getElementById('bulk-download-tpl')
+    if (bulkTpl) bulkTpl.addEventListener('click', downloadBulkTemplate)
+
+    var bulkBack = document.getElementById('bulk-back')
+    if (bulkBack) bulkBack.addEventListener('click', function () { bulkState.step = 'upload'; renderAdmin() })
+
+    var bulkApplyAll = document.getElementById('bulk-apply-all')
+    if (bulkApplyAll) bulkApplyAll.addEventListener('click', applyBulkDefaultsToAll)
+
+    app.querySelectorAll('.bulk-default-app-check').forEach(function (el) {
+      el.addEventListener('click', function () { toggleBulkDefaultApp(el.dataset.app) })
+    })
+
+    var defActiveEl = document.getElementById('bulk-default-active')
+    if (defActiveEl) defActiveEl.addEventListener('change', function () { bulkState.defaultActive = defActiveEl.querySelector('input').checked })
+
+    var defAdminEl = document.getElementById('bulk-default-admin')
+    if (defAdminEl) defAdminEl.addEventListener('change', function () { bulkState.defaultAdmin = defAdminEl.querySelector('input').checked })
+
+    app.querySelectorAll('.bulk-row-app-check').forEach(function (el) {
+      el.addEventListener('click', function () { toggleBulkRowApp(Number(el.dataset.idx), el.dataset.app) })
+    })
+
+    app.querySelectorAll('.bulk-row-active').forEach(function (el) {
+      el.addEventListener('change', function () { setBulkRowActive(Number(el.dataset.idx), el.querySelector('input').checked) })
+    })
+
+    app.querySelectorAll('.bulk-row-admin').forEach(function (el) {
+      el.addEventListener('change', function () { setBulkRowAdmin(Number(el.dataset.idx), el.querySelector('input').checked) })
+    })
+
+    app.querySelectorAll('.bulk-row-del').forEach(function (el) {
+      el.addEventListener('click', function () { removeBulkRow(Number(el.dataset.idx)) })
+    })
+
+    var bulkImportBtn = document.getElementById('bulk-import-btn')
+    if (bulkImportBtn) bulkImportBtn.addEventListener('click', doBulkImport)
+
+    var bulkDoneBtn = document.getElementById('bulk-done')
+    if (bulkDoneBtn) bulkDoneBtn.addEventListener('click', closeBulkImport)
+  }
 
   var activeEl = document.getElementById('m-active')
   if (activeEl) activeEl.addEventListener('change', function () {

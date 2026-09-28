@@ -104,3 +104,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .pin-input::placeholder{letter-spacing:4px;font-size:14px;color:rgba(0,0,0,.2)}
 .pin-err{font-size:12px;color:#f87171;margin-top:8px}
 .pin-btns{display:flex;gap:8px;margin-top:16px}
+
+.modal-box.wide{max-width:560px}
+.bulk-drop{border:2px dashed rgba(0,0,0,.1);border-radius:14px;padding:24px 16px;text-align:center}
+.bulk-file-input{display:block;width:100%;font-size:13px;color:rgba(0,0,0,.5)}
+.bulk-file-input::file-selector-button{margin-right:12px;padding:8px 14px;border-radius:8px;border:0;background:#7C3AED;color:#fff;font-size:12px;font-weight:600;cursor:pointer}
+.bulk-tpl-btn{margin-top:12px;padding:8px 14px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:#fff;color:rgba(0,0,0,.55);font-size:12px;font-weight:600;cursor:pointer}
+.bulk-errors{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 12px;margin-bottom:12px;max-height:100px;overflow-y:auto}
+.bulk-errors p{font-size:11px;color:#dc2626;margin:2px 0}
+.bulk-defaults{background:#f8f8fa;border:1px solid rgba(0,0,0,.06);border-radius:12px;padding:14px;margin-bottom:14px}
+.bulk-defaults-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bulk-apply-btn{padding:6px 12px;border-radius:8px;border:1px solid #7C3AED;background:#ede9fe;color:#7C3AED;font-size:11px;font-weight:600;cursor:pointer}
+.bulk-list{max-height:340px;overflow-y:auto;padding-right:2px}
+.bulk-row{border:1px solid rgba(0,0,0,.06);border-radius:12px;padding:12px;margin-bottom:10px;background:#fff}
+.bulk-row-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.bulk-row-head .modal-input{flex:1}
+.bulk-row-head .pick-avatar{width:30px;height:30px;font-size:12px;border-radius:9px}
+.bulk-pin-input{max-width:100px;flex:none!important}
+.bulk-check{padding:5px 9px!important;font-size:11px!important;gap:4px!important}
+.bulk-toggles{display:flex;gap:14px;margin-top:8px}
+.bulk-toggles .modal-toggle{font-size:12px}
+.bulk-progress-bar{width:100%;background:#f2f2f7;border-radius:99px;height:10px;margin-bottom:10px;overflow:hidden}
+.bulk-progress-fill{background:#7C3AED;height:10px;border-radius:99px;transition:width .2s}
